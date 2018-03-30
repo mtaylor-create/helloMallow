@@ -1,0 +1,13 @@
+# Compiled Python files
+*.pyc
+
+__pycache__/
+
+# Hidden folders
+#env/
+#unused/
+
+# Credentials
+client_secret.json
+assistant.json
+mallow.json
