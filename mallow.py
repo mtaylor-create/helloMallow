@@ -79,6 +79,28 @@ def detect_callback():
 
 #-------------------------
 
+def mallowSpeak(userQuery, gResponse):
+	if "pineapple" in userQuery:
+		return "pineapple pineapple?"
+
+	elif "your name" in userQuery:
+		return "I'm Mollo! Nice to meet you."
+
+	elif "goodnight" in userQuery or "good night" in userQuery:
+		return "Good night friend.  Sweet dreams for you."
+
+
+	else:
+		return gResponse
+
+
+
+
+
+
+
+#-------------------------
+
 ASSISTANT_API_ENDPOINT = 'embeddedassistant.googleapis.com'
 END_OF_UTTERANCE = embedded_assistant_pb2.AssistResponse.END_OF_UTTERANCE
 DIALOG_FOLLOW_ON = embedded_assistant_pb2.DialogStateOut.DIALOG_FOLLOW_ON
@@ -170,6 +192,8 @@ class SampleAssistant(object):
                 logging.info('Transcript of user request: "%s".',
                              ' '.join(r.transcript
                                       for r in resp.speech_results))
+                userQuery=' '.join(r.transcript for r in resp.speech_results)
+                #print(userQuery)
                 logging.info('Playing assistant response.')
             # if len(resp.audio_out.audio_data) > 0:
             #     self.conversation_stream.write(resp.audio_out.audio_data)
@@ -185,8 +209,9 @@ class SampleAssistant(object):
                 continue_conversation = True
                 logging.info('Expecting follow-on query from user.')
             if resp.dialog_state_out.supplemental_display_text:
-                print(resp.dialog_state_out.supplemental_display_text)
-                aiy.audio.say(resp.dialog_state_out.supplemental_display_text)
+            	gResponse=resp.dialog_state_out.supplemental_display_text
+                #print("Gooble Response: "+ gResponse)
+                #aiy.audio.say(gResponse)
             elif resp.dialog_state_out.microphone_mode == CLOSE_MICROPHONE:
                 continue_conversation = False
             if resp.device_action.device_request_json:
@@ -196,6 +221,11 @@ class SampleAssistant(object):
                 fs = self.device_handler(device_request)
                 if fs:
                     device_actions_futures.extend(fs)
+
+        print("User: " + userQuery)
+        print("Gooble Response: " + gResponse)
+        theMush = mallowSpeak(userQuery, gResponse)
+        aiy.audio.say(theMush)
 
         if len(device_actions_futures):
             logging.info('Waiting for device executions to complete.')
@@ -462,11 +492,11 @@ def main(api_endpoint, credentials, project_id,
             # detector.start(detected_callback=detect_callback, interrupt_check=interrupt_callback, sleep_time=0.03)
             # print("dooooooooo")
             if wait_for_user_trigger:
-                print("woober")
+                print("Waiting for mush...")
                 detector.start(detected_callback=detect_callback, interrupt_check=interrupt_callback, sleep_time=0.03)
                 #detector.terminate()
                 aiy.audio.say("mush mush?")
-                print("dooooooooo")
+                #print("dooooooooo")
                 #click.pause(info='Press Enter to send a new request...')
             continue_conversation = assistant.assist()
             # wait for user trigger if there is no follow-up turn in
