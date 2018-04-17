@@ -104,7 +104,7 @@ def mallowSpeak(userQuery, gResponse):
 		time.sleep(60*60)
 		return "Is it ok for me to come back now?"
 
-	elif "who " in userQuery and ("bring" in userQuery or "come" in userQuery):
+	elif "who " in userQuery and ("bring" in userQuery or "come" in userQuery or "take" in userQuery):
 		return friends[random.randint(0,len(friends)-1)] + feels[random.randint(0,len(feels)-1)]
 
 	elif "goodnight" in userQuery or "good night" in userQuery:
@@ -229,15 +229,15 @@ class SampleAssistant(object):
 								volume_percentage = resp.dialog_state_out.volume_percentage
 								logging.info('Setting volume to %s%%', volume_percentage)
 								self.conversation_stream.volume_percentage = volume_percentage
-						if resp.dialog_state_out.microphone_mode == DIALOG_FOLLOW_ON:
-								continue_conversation = True
-								logging.info('Expecting follow-on query from user.')
+						# if resp.dialog_state_out.microphone_mode == DIALOG_FOLLOW_ON:
+						# 		continue_conversation = True
+						# 		logging.info('Expecting follow-on query from user.')
 						if resp.dialog_state_out.supplemental_display_text:
 							gResponse=resp.dialog_state_out.supplemental_display_text
 								#print("Gooble Response: "+ gResponse)
 								#aiy.audio.say(gResponse)
-						elif resp.dialog_state_out.microphone_mode == CLOSE_MICROPHONE:
-								continue_conversation = False
+						# elif resp.dialog_state_out.microphone_mode == CLOSE_MICROPHONE:
+						# 		continue_conversation = False
 						if resp.device_action.device_request_json:
 								device_request = json.loads(
 										resp.device_action.device_request_json
@@ -246,10 +246,17 @@ class SampleAssistant(object):
 								if fs:
 										device_actions_futures.extend(fs)
 
-				print("User: " + userQuery)
-				print("Gooble Response: " + gResponse)
+				logging.info("User: " + userQuery)
+				logging.info("Gooble Response: " + gResponse)
 				theMush = mallowSpeak(userQuery, gResponse)
-				aiy.audio.say(theMush)
+				if gResponse=="":
+					continue_conversation=False
+				else:
+					aiy.audio.say(theMush)
+					if "thank you" in userQuery or "thanks" in userQuery:
+						continue_conversation=False
+					else:
+						continue_conversation=True
 
 				if len(device_actions_futures):
 						logging.info('Waiting for device executions to complete.')
