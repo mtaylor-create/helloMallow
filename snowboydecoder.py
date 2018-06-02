@@ -10,7 +10,7 @@ import logging
 
 logging.basicConfig()
 logger = logging.getLogger("snowboy")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 TOP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 RESOURCE_FILE = os.path.join(TOP_DIR, "resources/common.res")
@@ -74,6 +74,10 @@ class HotwordDetector(object):
                  sensitivity=[],
                  audio_gain=1):
 
+        def audio_callback(in_data, frame_count, time_info, status):
+            self.ring_buffer.extend(in_data)
+            play_data = chr(0) * len(in_data)
+            return play_data, pyaudio.paContinue
 
         tm = type(decoder_model)
         ts = type(sensitivity)
@@ -86,6 +90,8 @@ class HotwordDetector(object):
         self.detector = snowboydetect.SnowboyDetect(
             resource_filename=resource.encode(), model_str=model_str.encode())
         self.detector.SetAudioGain(audio_gain)
+        #this code is used when test universal model
+        #self.detector.ApplyFrontend(True)
         self.num_hotwords = self.detector.NumHotwords()
 
         if len(decoder_model) > 1 and len(sensitivity) == 1:
@@ -100,6 +106,15 @@ class HotwordDetector(object):
 
         self.ring_buffer = RingBuffer(
             self.detector.NumChannels() * self.detector.SampleRate() * 5)
+        self.audio = pyaudio.PyAudio()
+        self.stream_in = self.audio.open(
+            input=True, output=False,
+            format=self.audio.get_format_from_width(
+                self.detector.BitsPerSample() / 8),
+            channels=self.detector.NumChannels(),
+            rate=self.detector.SampleRate(),
+            frames_per_buffer=2048,
+            stream_callback=audio_callback)
 
 
     def start(self, detected_callback=play_audio_file,
@@ -121,20 +136,6 @@ class HotwordDetector(object):
         :param float sleep_time: how much time in second every loop waits.
         :return: None
         """
-
-        def audio_callback(in_data, frame_count, time_info, status):
-            self.ring_buffer.extend(in_data)
-            play_data = chr(0) * len(in_data)
-            return play_data, pyaudio.paContinue
-        self.audio = pyaudio.PyAudio()
-        self.stream_in = self.audio.open(
-            input=True, output=False,
-            format=self.audio.get_format_from_width(
-                self.detector.BitsPerSample() / 8),
-            channels=self.detector.NumChannels(),
-            rate=self.detector.SampleRate(),
-            frames_per_buffer=2048,
-            stream_callback=audio_callback)
         if interrupt_check():
             logger.debug("detect voice return")
             return

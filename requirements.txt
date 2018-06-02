@@ -9,7 +9,6 @@ google-assistant-sdk==0.4.4
 google-auth==1.4.1
 google-auth-oauthlib==0.2.0
 googleapis-common-protos==1.5.3
-grpcio==1.10.0
 idna==2.6
 monotonic==1.4
 oauthlib==2.0.7

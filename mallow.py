@@ -71,7 +71,7 @@ def interrupt_callback():
 detector=snowboydecoder.HotwordDetector(model, sensitivity=0.5)
 
 def detect_callback():
-	detector.terminate()
+	#detector.terminate()
 	print("I heard you!")
 	global interrupted
 	interrupted=True
@@ -526,6 +526,7 @@ def main(api_endpoint, credentials, project_id,
 						if wait_for_user_trigger:
 								print("Waiting for mush...")
 								detector.start(detected_callback=detect_callback, interrupt_check=interrupt_callback, sleep_time=0.03)
+								print("Mush detector cleared")
 								#detector.terminate()
 								#aiy.audio.say("mush mush?")
 								aiy.audio.say(greetings[random.randint(0,len(greetings)-1)])
