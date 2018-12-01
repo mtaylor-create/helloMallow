@@ -78,7 +78,9 @@ def interrupt_callback():
 
 #signal.signal(signal.SIGINT, signal_handler)
 
-#detector=snowboydecoder.HotwordDetector(model, sensitivity=0.5)
+# print("snoot")
+# detector=snowboydecoder.HotwordDetector(model, sensitivity=0.5)
+# print("doot")
 
 def detect_callback():
 	#detector.terminate()
@@ -91,6 +93,7 @@ def detect_callback():
 def makeCStream(audio_sample_rate, audio_sample_width,
          audio_iter_size, audio_block_size, audio_flush_size):
     # Configure audio source and sink.
+    print("Makin' stream")
     audio_device = None
     audio_source = audio_device = (
         audio_device or audio_helpers.SoundDeviceStream(
@@ -117,7 +120,7 @@ def makeCStream(audio_sample_rate, audio_sample_width,
         iter_size=audio_iter_size,
         sample_width=audio_sample_width,
     )
-    
+    print("Made stream!")
     return conversation_stream
 
 
@@ -139,14 +142,20 @@ class SampleAssistant(object):
       device_handler: callback for device actions.
     """
 
-    def __init__(self, language_code, device_model_id, device_id,
-                 conversation_stream, display,
-                 channel, deadline_sec, device_handler):
+    def __init__(self, language_code, device_model_id, device_id, display,
+                 channel, deadline_sec, device_handler, audio_sample_rate, 
+                 audio_sample_width, audio_iter_size, audio_block_size, 
+                 audio_flush_size):
         self.language_code = language_code
         self.device_model_id = device_model_id
         self.device_id = device_id
-        self.conversation_stream = conversation_stream
+        #self.conversation_stream = conversation_stream
         self.display = display
+        self.audio_sample_rate = audio_sample_rate
+        self.audio_sample_width = audio_sample_width
+        self.audio_iter_size = audio_iter_size
+        self.audio_block_size = audio_block_size
+        self.audio_flush_size = audio_flush_size
 
         # Opaque blob provided in AssistResponse that,
         # when provided in a follow-up AssistRequest,
@@ -184,6 +193,8 @@ class SampleAssistant(object):
     @retry(reraise=True, stop=stop_after_attempt(3),
            retry=retry_if_exception(is_grpc_error_unavailable))
     def assist(self):
+        self.conversation_stream = makeCStream(self.audio_sample_rate, self.audio_sample_width,
+         self.audio_iter_size, self.audio_block_size, self.audio_flush_size)
         """Send a voice request to the Assistant and playback the response.
 
         Returns: True if conversation should continue.
@@ -249,6 +260,9 @@ class SampleAssistant(object):
 
         logging.info('Finished playing assistant response.')
         self.conversation_stream.stop_playback()
+        print("Killin' stream")
+        self.conversation_stream.close()
+        print("It ded")
         return continue_conversation
 
     def gen_assist_requests(self):
@@ -401,13 +415,13 @@ def main(api_endpoint, credentials, project_id,
         credentials, http_request, api_endpoint)
     logging.info('Connecting to %s', api_endpoint)
     
-    print("Make the cstream")
-    conversation_stream = makeCStream(audio_sample_rate, audio_sample_width,
-         audio_iter_size, audio_block_size, audio_flush_size)
-    conversation_stream.close()
-    print("Make... another?")
-    conversation_stream = makeCStream(audio_sample_rate, audio_sample_width,
-         audio_iter_size, audio_block_size, audio_flush_size)
+    # print("Make the cstream")
+    # conversation_stream = makeCStream(audio_sample_rate, audio_sample_width,
+    #      audio_iter_size, audio_block_size, audio_flush_size)
+    # conversation_stream.close()
+    # print("Make... another?")
+    # conversation_stream = makeCStream(audio_sample_rate, audio_sample_width,
+    #      audio_iter_size, audio_block_size, audio_flush_size)
 
     if not device_id or not device_model_id:
         try:
@@ -473,23 +487,25 @@ def main(api_endpoint, credentials, project_id,
             time.sleep(delay)
 
     with SampleAssistant(lang, device_model_id, device_id,
-                         conversation_stream, display,
+                         display,
                          grpc_channel, grpc_deadline,
-                         device_handler) as assistant:
-        # If file arguments are supplied:
-        # exit after the first turn of the conversation.
-        if input_audio_file or output_audio_file:
-            assistant.assist()
-            return
+                         device_handler, audio_sample_rate, audio_sample_width,
+         audio_iter_size, audio_block_size, audio_flush_size) as assistant:
 
-        # If no file arguments supplied:
-        # keep recording voice requests using the microphone
-        # and playing back assistant response using the speaker.
-        # When the once flag is set, don't wait for a trigger. Otherwise, wait.
+
         wait_for_user_trigger = not once
+        
+        global interrupted
+        
         while True:
             if wait_for_user_trigger:
-                click.pause(info='Press Enter to send a new request...')
+                #click.pause(info='Press Enter to send a new request...')
+                print("snoot")
+                interrupted=False
+                detector=snowboydecoder.HotwordDetector(model, sensitivity=0.5)
+                print("doot")
+                detector.start(detected_callback=detect_callback, interrupt_check=interrupt_callback, sleep_time=0.03)
+                detector.terminate()
             continue_conversation = assistant.assist()
             # wait for user trigger if there is no follow-up turn in
             # the conversation.
