@@ -30,11 +30,11 @@ import google.auth.transport.grpc
 import google.auth.transport.requests
 import google.oauth2.credentials
 
-#import aiy.audio
-#import random
+import aiy.audio
+import random
 
-#import snowboydecoder
-#import signal
+import snowboydecoder
+import signal
 
 from google.assistant.embedded.v1alpha2 import (
     embedded_assistant_pb2,
@@ -56,74 +56,6 @@ except (SystemError, ImportError):
     import device_helpers
 
 
-# #-------------------------
-# 
-# interrupted=False
-# model="models/heyMallow.pmdl"
-# 
-# def signal_handler(signal, frame):
-#  global interrupted
-#  interrupted=True
-# 
-# def interrupt_callback():
-#  global interrupted
-#  return interrupted
-# 
-# #signal.signal(signal.SIGINT, signal_handler)
-# 
-# #detector=snowboydecoder.HotwordDetector(model, sensitivity=0.5)
-# 
-# def detect_callback():
-#     #detector.terminate()
-#     print("I heard you!")
-#     global interrupted
-#     interrupted=True
-# #  detector.start(detected_callback=detect_callback, interrupt_check=interrupt_callback, sleep_time=0.03)
-# 
-# 
-# #-------------------------
-# 
-# greetings=["mush mush?","Snootle doo?","mush?","mush mush?","hi!","may I help?","me?","yes friend?","mush?","hi!","Presdent Reagan?","hum?","mo she mo she? Mollow des"]
-# 
-# moods=["I'm alright.","A little bored","Just mushin.","Hum? Sorry, I was reading.","Cheebly.","All is well with the cosmos.","A little peckish.","I took a nice nap.","I ate some of your food. Sorry."]
-# 
-# friends=["Gregor ","Bartlett ","Maple "]
-# feels=["wants to come.","was feeling bored earlier.","and I are going to hang out.","would like to see something new.","is ready for an adventure!","never lets you down!","thinks you might need help today.","maybe?"]
-# 
-# def mallowSpeak(userQuery, gResponse):
-#     if "pineapple" in userQuery:
-#         return "pineapple pineapple?"
-#     
-#     elif "how are you" in userQuery:
-#         return moods[random.randint(0,len(moods)-1)]
-#     
-#     elif "nap" in userQuery:
-#         aiy.audio.say("A nap? I'll nap for 10 minutes!")
-#         time.sleep(60*10)
-#         return "That was a nice nap. Did you miss me?"
-#     
-#     elif "i'm busy" in userQuery or "on the phone" in userQuery:
-#         aiy.audio.say("Oops.  I'll be quiet.")
-#         time.sleep(60*60)
-#         return "Is it ok for me to come back now?"
-#     
-#     elif "who " in userQuery and ("bring" in userQuery or "come" in userQuery or "take" in userQuery):
-#         return friends[random.randint(0,len(friends)-1)] + feels[random.randint(0,len(feels)-1)]
-#     
-#     elif "goodnight" in userQuery or "good night" in userQuery:
-#         return "Good night friend.  Sweet dreams for you."
-#     
-#     else:
-#         return gResponse
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# #-------------------------
-
 ASSISTANT_API_ENDPOINT = 'embeddedassistant.googleapis.com'
 END_OF_UTTERANCE = embedded_assistant_pb2.AssistResponse.END_OF_UTTERANCE
 DIALOG_FOLLOW_ON = embedded_assistant_pb2.DialogStateOut.DIALOG_FOLLOW_ON
@@ -131,6 +63,67 @@ CLOSE_MICROPHONE = embedded_assistant_pb2.DialogStateOut.CLOSE_MICROPHONE
 PLAYING = embedded_assistant_pb2.ScreenOutConfig.PLAYING
 DEFAULT_GRPC_DEADLINE = 60 * 3 + 5
 
+#----------------------------------
+
+interrupted=False
+model="models/heyMallow.pmdl"
+
+def signal_handler(signal, frame):
+ global interrupted
+ interrupted=True
+
+def interrupt_callback():
+ global interrupted
+ return interrupted
+
+#signal.signal(signal.SIGINT, signal_handler)
+
+#detector=snowboydecoder.HotwordDetector(model, sensitivity=0.5)
+
+def detect_callback():
+	#detector.terminate()
+	print("I heard you!")
+	global interrupted
+	interrupted=True
+#  detector.start(detected_callback=detect_callback, interrupt_check=interrupt_callback, sleep_time=0.03)
+
+#----------------------------
+def makeCStream(audio_sample_rate, audio_sample_width,
+         audio_iter_size, audio_block_size, audio_flush_size):
+    # Configure audio source and sink.
+    audio_device = None
+    audio_source = audio_device = (
+        audio_device or audio_helpers.SoundDeviceStream(
+            sample_rate=audio_sample_rate,
+            sample_width=audio_sample_width,
+            block_size=audio_block_size,
+            flush_size=audio_flush_size
+        )
+    )
+
+    audio_sink = audio_device = (
+        audio_device or audio_helpers.SoundDeviceStream(
+            sample_rate=audio_sample_rate,
+            sample_width=audio_sample_width,
+            block_size=audio_block_size,
+            flush_size=audio_flush_size
+        )
+    )
+    
+    # Create conversation stream with the given audio source and sink.
+    conversation_stream = audio_helpers.ConversationStream(
+        source=audio_source,
+        sink=audio_sink,
+        iter_size=audio_iter_size,
+        sample_width=audio_sample_width,
+    )
+    
+    return conversation_stream
+
+
+
+
+#----------------------------
 
 class SampleAssistant(object):
     """Sample Assistant that supports conversations and device actions.
@@ -209,10 +202,6 @@ class SampleAssistant(object):
 
         # This generator yields AssistResponse proto messages
         # received from the gRPC Google Assistant API.
-        
-        userQuery=""
-        gResponse=""
-        
         for resp in self.assistant.Assist(iter_log_assist_requests(),
                                           self.deadline):
             assistant_helpers.log_assist_response_without_audio(resp)
@@ -411,46 +400,14 @@ def main(api_endpoint, credentials, project_id,
     grpc_channel = google.auth.transport.grpc.secure_authorized_channel(
         credentials, http_request, api_endpoint)
     logging.info('Connecting to %s', api_endpoint)
-
-    # Configure audio source and sink.
-    audio_device = None
-    if input_audio_file:
-        audio_source = audio_helpers.WaveSource(
-            open(input_audio_file, 'rb'),
-            sample_rate=audio_sample_rate,
-            sample_width=audio_sample_width
-        )
-    else:
-        audio_source = audio_device = (
-            audio_device or audio_helpers.SoundDeviceStream(
-                sample_rate=audio_sample_rate,
-                sample_width=audio_sample_width,
-                block_size=audio_block_size,
-                flush_size=audio_flush_size
-            )
-        )
-    if output_audio_file:
-        audio_sink = audio_helpers.WaveSink(
-            open(output_audio_file, 'wb'),
-            sample_rate=audio_sample_rate,
-            sample_width=audio_sample_width
-        )
-    else:
-        audio_sink = audio_device = (
-            audio_device or audio_helpers.SoundDeviceStream(
-                sample_rate=audio_sample_rate,
-                sample_width=audio_sample_width,
-                block_size=audio_block_size,
-                flush_size=audio_flush_size
-            )
-        )
-    # Create conversation stream with the given audio source and sink.
-    conversation_stream = audio_helpers.ConversationStream(
-        source=audio_source,
-        sink=audio_sink,
-        iter_size=audio_iter_size,
-        sample_width=audio_sample_width,
-    )
+    
+    print("Make the cstream")
+    conversation_stream = makeCStream(audio_sample_rate, audio_sample_width,
+         audio_iter_size, audio_block_size, audio_flush_size)
+    conversation_stream.close()
+    print("Make... another?")
+    conversation_stream = makeCStream(audio_sample_rate, audio_sample_width,
+         audio_iter_size, audio_block_size, audio_flush_size)
 
     if not device_id or not device_model_id:
         try:
