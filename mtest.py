@@ -89,6 +89,40 @@ def detect_callback():
 	interrupted=True
 #  detector.start(detected_callback=detect_callback, interrupt_check=interrupt_callback, sleep_time=0.03)
 
+
+#----------------------------
+
+greetings=["mush mush?","Snootle doo?","mush?","mush mush?","hi!","may I help?","me?","yes friend?","mush?","hi!","Presdent Reagan?","hum?","mo she mo she? Mollow des"]
+
+moods=["I'm alright.","A little bored","Just mushin.","Hum? Sorry, I was reading.","Cheebly.","All is well with the cosmos.","A little peckish.","I took a nice nap.","I ate some of your food. Sorry."]
+
+
+def mallowSpeak(userQuery, gResponse):
+    if "pineapple" in userQuery:
+        return "pineapple pineapple?"
+
+    elif "how are you" in userQuery:
+        return moods[random.randint(0,len(moods)-1)]
+
+    elif "nap" in userQuery:
+        aiy.audio.say("A nap? I'll nap for 10 minutes!")
+        time.sleep(60*10)
+        return "That was a nice nap. Did you miss me?"
+
+    elif "i'm busy" in userQuery or "on the phone" in userQuery:
+        aiy.audio.say("Oops.  I'll be quiet.")
+        time.sleep(60*60)
+        return "Is it ok for me to come back now?"
+
+    elif "goodnight" in userQuery or "good night" in userQuery:
+        return "Good night friend.  Sweet dreams for you."
+
+    else:
+        return gResponse
+
+
+
+
 #----------------------------
 def makeCStream(audio_sample_rate, audio_sample_width,
          audio_iter_size, audio_block_size, audio_flush_size):
@@ -221,15 +255,21 @@ class SampleAssistant(object):
                 logging.info('Stopping recording.')
                 self.conversation_stream.stop_recording()
             if resp.speech_results:
-                logging.info('Transcript of user request: "%s".',
-                             ' '.join(r.transcript
-                                      for r in resp.speech_results))
+                # logging.info('Transcript of user request: "%s".',
+                #              ' '.join(r.transcript
+                #                       for r in resp.speech_results))
+                userQuery=' '.join(r.transcript for r in resp.speech_results)
             if len(resp.audio_out.audio_data) > 0:
                 if not self.conversation_stream.playing:
                     self.conversation_stream.stop_recording()
-                    self.conversation_stream.start_playback()
-                    logging.info('Playing assistant response.')
-                self.conversation_stream.write(resp.audio_out.audio_data)
+                    #self.conversation_stream.start_playback()
+                    #logging.info('Playing assistant response.')
+                #self.conversation_stream.write(resp.audio_out.audio_data)
+            #-------------------    
+            if resp.dialog_state_out.supplemental_display_text:
+                gResponse=resp.dialog_state_out.supplemental_display_text
+                #print(gResponse)
+            #-------------------
             if resp.dialog_state_out.conversation_state:
                 conversation_state = resp.dialog_state_out.conversation_state
                 logging.debug('Updating conversation state.')
@@ -257,12 +297,19 @@ class SampleAssistant(object):
         if len(device_actions_futures):
             logging.info('Waiting for device executions to complete.')
             concurrent.futures.wait(device_actions_futures)
-
         logging.info('Finished playing assistant response.')
-        self.conversation_stream.stop_playback()
+        #self.conversation_stream.stop_playback()
         print("Killin' stream")
         self.conversation_stream.close()
         print("It ded")
+        try:
+            theMush = mallowSpeak(userQuery, gResponse)
+            for mushBit in theMush.splitlines():
+                print("bit:",mushBit)
+                if "---" not in mushBit:
+                    aiy.audio.say(mushBit)
+        except:
+            print("No response")
         return continue_conversation
 
     def gen_assist_requests(self):
@@ -500,11 +547,12 @@ def main(api_endpoint, credentials, project_id,
         while True:
             if wait_for_user_trigger:
                 #click.pause(info='Press Enter to send a new request...')
-                print("snoot")
+                print("Waiting for mush...")
                 interrupted=False
                 detector=snowboydecoder.HotwordDetector(model, sensitivity=0.5)
-                print("doot")
                 detector.start(detected_callback=detect_callback, interrupt_check=interrupt_callback, sleep_time=0.03)
+                print("   ...got the mush")
+                aiy.audio.say("Mush mush?")
                 detector.terminate()
             continue_conversation = assistant.assist()
             # wait for user trigger if there is no follow-up turn in
