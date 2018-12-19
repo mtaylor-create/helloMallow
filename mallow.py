@@ -1,18 +1,28 @@
-# Copyright (C) 2017 Google Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Mallow robot code by mtaylor-create, Dec 2018
 
-"""Sample that implements a gRPC client for the Google Assistant API."""
+# If you're one of my students or TAs, please excuse the mess... this was a
+# hacky project I started a long time ago and haven't had much time to update.
+
+# Mallow uses the Google assistant grpc service for general-purpose conversation
+# with Snowboy on-device hotword detection.  Audio response from Google is 
+# discarded in favor of on-board text-to-speech using AIY's audio code. Specific
+# behavioral modifications override Google responses.  Faces are displayed
+# on a Papirus e-ink display.  Base hardware: rPi 0w
+
+# Assistant base code from Google's pushtotalk.py demo:
+    # Copyright (C) 2017 Google Inc.
+    #
+    # Licensed under the Apache License, Version 2.0 (the "License");
+    # you may not use this file except in compliance with the License.
+    # You may obtain a copy of the License at
+    #
+    #     http://www.apache.org/licenses/LICENSE-2.0
+    #
+    # Unless required by applicable law or agreed to in writing, software
+    # distributed under the License is distributed on an "AS IS" BASIS,
+    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    # See the License for the specific language governing permissions and
+    # limitations under the License.
 
 import concurrent.futures
 import json
@@ -55,6 +65,7 @@ except (SystemError, ImportError):
     import browser_helpers
     import device_helpers
 
+#------------pushtotalk.py---------------------
 
 ASSISTANT_API_ENDPOINT = 'embeddedassistant.googleapis.com'
 END_OF_UTTERANCE = embedded_assistant_pb2.AssistResponse.END_OF_UTTERANCE
@@ -63,7 +74,7 @@ CLOSE_MICROPHONE = embedded_assistant_pb2.DialogStateOut.CLOSE_MICROPHONE
 PLAYING = embedded_assistant_pb2.ScreenOutConfig.PLAYING
 DEFAULT_GRPC_DEADLINE = 60 * 3 + 5
 
-#----------------------------------
+#------------face stuff----------------------
 from papirus import PapirusTextPos
 
 def freshFace(pText):
@@ -108,7 +119,7 @@ freshFace(face)
 asleepFace(face)
 
 
-#----------------------------------
+#-------------Snowboy stuff---------------------
 
 interrupted=False
 model="models/heyMallow.pmdl"
@@ -121,25 +132,18 @@ def interrupt_callback():
  global interrupted
  return interrupted
 
-#signal.signal(signal.SIGINT, signal_handler)
-
-# print("snoot")
-# detector=snowboydecoder.HotwordDetector(model, sensitivity=0.5)
-# print("doot")
 
 def detect_callback():
-	#detector.terminate()
 	print("I heard you!")
 	global interrupted
 	interrupted=True
-#  detector.start(detected_callback=detect_callback, interrupt_check=interrupt_callback, sleep_time=0.03)
 
 
-#----------------------------
+#---------------Personality stuff-------------
 
 greetings=["mush mush?","Snootle doo?","mush?","mush mush?","hi!","may I help?","me?","yes friend?","mush?","hi!","Presdent Reagan?","hum?","mo she mo she? Mollow des"]
 
-moods=["I'm alright.","A little bored","Just mushin.","Hum? Sorry, I was reading.","Cheebly.","All is well with the cosmos.","A little peckish.","I took a nice nap.","I ate some of your food. Sorry."]
+moods=["Wooden.","I'm alright.","A little bored","Just mushin.","Hum? Sorry, I was reading.","All is well with the cosmos.","A little peckish.","I took a nice nap.","I ate some of your food. Sorry."]
 
 
 def mallowSpeak(userQuery, gResponse):
@@ -177,11 +181,11 @@ def mallowSpeak(userQuery, gResponse):
 
 
 
-#----------------------------
+#--------------Conversation stream hack--------------
+#(Snowboy and Google Assistant don't like to share audio devices)
 def makeCStream(audio_sample_rate, audio_sample_width,
          audio_iter_size, audio_block_size, audio_flush_size):
     # Configure audio source and sink.
-    print("Makin' stream")
     audio_device = None
     audio_source = audio_device = (
         audio_device or audio_helpers.SoundDeviceStream(
@@ -208,13 +212,12 @@ def makeCStream(audio_sample_rate, audio_sample_width,
         iter_size=audio_iter_size,
         sample_width=audio_sample_width,
     )
-    print("Made stream!")
     return conversation_stream
 
 
 
 
-#----------------------------
+#----------------Mostly pushtotalk.py with some mods------------
 
 class SampleAssistant(object):
     """Sample Assistant that supports conversations and device actions.
@@ -293,6 +296,7 @@ class SampleAssistant(object):
         self.conversation_stream.start_recording()
         logging.info('Recording audio request.')
 
+        #------This function modified to pull text responses-------
         def iter_log_assist_requests():
             for c in self.gen_assist_requests():
                 assistant_helpers.log_assist_request_without_audio(c)
@@ -352,10 +356,7 @@ class SampleAssistant(object):
             logging.info('Waiting for device executions to complete.')
             concurrent.futures.wait(device_actions_futures)
         logging.info('Finished playing assistant response.')
-        #self.conversation_stream.stop_playback()
-        print("Killin' stream")
         self.conversation_stream.close()
-        print("It ded")
         try:
             theMush = mallowSpeak(userQuery, gResponse)
             for mushBit in theMush.splitlines():
@@ -480,21 +481,7 @@ def main(api_endpoint, credentials, project_id,
          audio_sample_rate, audio_sample_width,
          audio_iter_size, audio_block_size, audio_flush_size,
          grpc_deadline, once, *args, **kwargs):
-    """Samples for the Google Assistant API.
 
-    Examples:
-      Run the sample with microphone input and speaker output:
-
-        $ python -m googlesamples.assistant
-
-      Run the sample with file input and speaker output:
-
-        $ python -m googlesamples.assistant -i <input file>
-
-      Run the sample with file input and output:
-
-        $ python -m googlesamples.assistant -i <input file> -o <output file>
-    """
     # Setup logging.
     logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO)
 
@@ -516,13 +503,6 @@ def main(api_endpoint, credentials, project_id,
         credentials, http_request, api_endpoint)
     logging.info('Connecting to %s', api_endpoint)
     
-    # print("Make the cstream")
-    # conversation_stream = makeCStream(audio_sample_rate, audio_sample_width,
-    #      audio_iter_size, audio_block_size, audio_flush_size)
-    # conversation_stream.close()
-    # print("Make... another?")
-    # conversation_stream = makeCStream(audio_sample_rate, audio_sample_width,
-    #      audio_iter_size, audio_block_size, audio_flush_size)
 
     if not device_id or not device_model_id:
         try:
@@ -598,26 +578,22 @@ def main(api_endpoint, credentials, project_id,
         
         global interrupted
         
+        #-------------------Main loop-------------------
         while True:
             if wait_for_user_trigger:
                 defaultFace(face)
-                #click.pause(info='Press Enter to send a new request...')
-                print("Waiting for mush...")
+                print("Waiting for friend...")
                 interrupted=False
                 detector=snowboydecoder.HotwordDetector(model, sensitivity=0.5)
                 detector.start(detected_callback=detect_callback, interrupt_check=interrupt_callback, sleep_time=0.03)
                 sillyFace(face)
-                print("   ...got the mush")
+                print("   ...found the friend!")
                 aiy.audio.say("Yesh?")
                 detector.terminate()
             continue_conversation = assistant.assist()
-            # wait for user trigger if there is no follow-up turn in
-            # the conversation.
+
             wait_for_user_trigger = not continue_conversation
 
-            # If we only want one conversation, break.
-            if once and (not continue_conversation):
-                break
 
 
 if __name__ == '__main__':
